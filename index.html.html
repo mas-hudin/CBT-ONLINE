@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduCore Exam System - Ujian Sekolah Profesional</title>
+    <!-- Tailwind CSS untuk Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        // Konfigurasi Tailwind Kustom
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        },
+                        secondary: '#f3f4f6',
+                        dark: '#111827',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Effect */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .gform-wrapper {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 180px);
+            overflow: hidden;
+            border-radius: 0.75rem;
+            background: #fff;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .gform-iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            margin-top: -10px; 
+        }
+
+        #webcam-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 150px;
+            height: 110px;
+            background-color: #000;
+            border-radius: 12px;
+            border: 3px solid #22c55e;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            z-index: 50;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        #webcam-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        .recording-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 10px;
+            height: 10px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        #violation-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(220, 38, 38, 0.95);
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+        }
+
+        .floating-timer {
+            position: fixed;
+            top: 20px;
+            right: 50%;
+            transform: translateX(50%);
+            background: rgba(17, 24, 39, 0.8);
+            color: white;
+            padding: 8px 24px;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: 2px;
+            backdrop-filter: blur(4px);
+            z-index: 40;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .timer-warning {
+            background: rgba(220, 38, 38, 0.9);
+            animation: warningPulse 1s infinite;
+        }
+
+        @keyframes warningPulse {
+            0% { background: rgba(220, 38, 38, 0.9); }
+            50% { background: rgba(153, 27, 27, 1); }
+            100% { background: rgba(220, 38, 38, 0.9); }
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        
+        /* Pre block styling for Code snippet */
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.875rem;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased h-screen flex flex-col">
+
+    <!-- Top Navigation -->
+    <nav class="bg-white border-b border-gray-200 shadow-sm z-30 relative" id="main-nav">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight text-gray-900">EduCore<span class="text-primary-600">Exam</span></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="switchView('student-login')" class="text-sm font-medium text-gray-500 hover:text-primary-600 px-3 py-2 rounded-md transition-colors border border-transparent hover:bg-gray-50">
+                        <i class="fa-solid fa-user-graduate mr-2"></i>Portal Siswa
+                    </button>
+                    <!-- Tombol Panitia diarahkan ke Login Admin dulu -->
+                    <button onclick="requireAdminAuth()" class="text-sm font-medium bg-primary-50 text-primary-700 px-4 py-2 rounded-md transition-colors border border-primary-200 hover:bg-primary-100 shadow-sm">
+                        <i class="fa-solid fa-user-shield mr-2"></i>Panel Panitia
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-grow flex flex-col w-full h-full relative overflow-y-auto overflow-x-hidden bg-gray-50">
+
+        <!-- ========================================== -->
+        <!-- VIEW 1: PORTAL SISWA - HALAMAN LOGIN TOKEN -->
+        <!-- ========================================== -->
+        <section id="student-login" class="view-section active h-full flex items-center justify-center p-4">
+            <div class="max-w-md w-full glass-panel rounded-2xl p-8 transform transition-all hover:scale-[1.01]">
+                <div class="text-center mb-8">
+                    <div class="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-sm">
+                        <i class="fa-solid fa-qrcode text-2xl text-primary-600"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">Masuk Ruang Ujian</h2>
+                    <p class="text-sm text-gray-500 mt-2">Silakan masukkan Nama Lengkap, NISN, dan Token yang diberikan oleh Panitia.</p>
+                </div>
+
+                <form id="student-login-form" onsubmit="handleStudentLogin(event)" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-regular fa-user text-gray-400"></i>
+                            </div>
+                            <input type="text" id="student-name" required class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm shadow-sm transition-colors bg-gray-50 focus:bg-white" placeholder="Cth: Budi Santoso">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">NISN / No. Peserta</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-id-card text-gray-400"></i>
+                            </div>
+                            <input type="text" id="student-nisn" required class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm shadow-sm transition-colors bg-gray-50 focus:bg-white" placeholder="Masukkan Nomor Peserta">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Token Ujian</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-key text-gray-400"></i>
+                            </div>
+                            <input type="text" id="exam-token" required class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm font-mono uppercase tracking-widest shadow-sm transition-colors bg-gray-50 focus:bg-white" placeholder="XXXXXX">
+                        </div>
+                    </div>
+
+                    <div id="student-login-error" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+                        <div class="flex">
+                            <i class="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
+                            <div class="ml-3">
+                                <p class="text-sm text-red-700 font-medium" id="student-login-error-text">Token tidak valid.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all hover:-translate-y-0.5">
+                            Mulai Ujian Sekarang <i class="fa-solid fa-arrow-right ml-2 mt-1"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: LOGIN ADMIN (PANITIA)              -->
+        <!-- ========================================== -->
+        <section id="admin-login" class="view-section h-full flex items-center justify-center p-4 bg-dark">
+            <div class="max-w-md w-full bg-white rounded-2xl p-8 shadow-2xl">
+                <div class="text-center mb-8">
+                    <div class="mx-auto w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4 border-4 border-gray-200">
+                        <i class="fa-solid fa-user-shield text-2xl text-white"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">Login Kepanitiaan</h2>
+                    <p class="text-sm text-gray-500 mt-2">Akses khusus untuk mengelola sesi ujian dan server database.</p>
+                </div>
+
+                <form id="admin-login-form" onsubmit="handleAdminLogin(event)" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Username Admin</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-user-lock text-gray-400"></i>
+                            </div>
+                            <input type="text" id="admin-username" required class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-gray-800 focus:border-gray-800 text-sm bg-gray-50 focus:bg-white" placeholder="Username (Default: admin)">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-lock text-gray-400"></i>
+                            </div>
+                            <input type="password" id="admin-password" required class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-gray-800 focus:border-gray-800 text-sm bg-gray-50 focus:bg-white" placeholder="Password (Default: admin)">
+                        </div>
+                    </div>
+
+                    <div id="admin-login-error" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+                        <p class="text-sm text-red-700 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Username atau Password salah.</p>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white bg-gray-900 hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-all">
+                            Masuk ke Dashboard <i class="fa-solid fa-right-to-bracket ml-2 mt-1"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: RUANG UJIAN AKTIF (G-FORM WRAPPER) -->
+        <!-- ========================================== -->
+        <section id="active-exam-room" class="view-section h-full flex flex-col bg-gray-100 hidden">
+            <!-- Floating Timer -->
+            <div id="exam-timer" class="floating-timer">
+                <i class="fa-regular fa-clock mr-2"></i> <span id="timer-display">00:00:00</span>
+            </div>
+
+            <!-- Exam Header Bar -->
+            <div class="bg-white px-6 py-3 border-b border-gray-200 shadow-sm flex items-center justify-between shrink-0">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold shadow-inner mr-3">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-gray-800 leading-tight" id="active-exam-title">Memuat Ujian...</h1>
+                        <p class="text-xs text-gray-500 font-medium"><i class="fa-solid fa-user mr-1"></i> <span id="active-student-name">Nama Siswa</span> | <i class="fa-solid fa-id-badge mx-1"></i> <span id="active-student-nisn">NISN</span></p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="finishExamPrompt()" class="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center">
+                        <i class="fa-solid fa-check-double mr-2"></i>Selesai & Kumpulkan
+                    </button>
+                </div>
+            </div>
+
+            <!-- Google Form Container -->
+            <div class="flex-grow p-4 md:p-6 lg:px-8 xl:px-24 flex flex-col items-center justify-center relative bg-gray-100">
+                <div id="form-loader" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-100">
+                    <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-4"></div>
+                    <p class="text-gray-600 font-medium">Menyiapkan Ruang Ujian Aman...</p>
+                </div>
+
+                <div class="w-full max-w-4xl h-full gform-wrapper">
+                    <iframe id="google-form-iframe" src="" class="gform-iframe" onload="document.getElementById('form-loader').style.display='none'" allowfullscreen></iframe>
+                </div>
+            </div>
+
+            <div id="webcam-container">
+                <div class="recording-dot"></div>
+                <video id="webcam-feed" autoplay muted playsinline></video>
+                <div class="absolute bottom-1 left-0 w-full text-center bg-black/50 backdrop-blur-sm text-white text-[10px] py-0.5">Pengawasan AI Aktif</div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 4: PANEL PANITIA (BACKEND DASHBOARD)  -->
+        <!-- ========================================== -->
+        <section id="admin-dashboard" class="view-section h-full bg-gray-50 flex flex-col hidden">
+            
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Sidebar -->
+                <aside class="w-64 bg-dark text-white flex-shrink-0 overflow-y-auto hidden md:flex md:flex-col">
+                    <div class="p-6 flex-grow">
+                        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Menu Panitia</h2>
+                        <nav class="space-y-2">
+                            <a href="#" onclick="switchAdminTab('tab-overview')" id="nav-tab-overview" class="admin-nav-item bg-gray-800 text-white flex items-center px-4 py-3 rounded-lg transition-colors">
+                                <i class="fa-solid fa-chart-pie w-6"></i> Dashboard
+                            </a>
+                            <a href="#" onclick="switchAdminTab('tab-create')" id="nav-tab-create" class="admin-nav-item text-gray-300 hover:bg-gray-800 hover:text-white flex items-center px-4 py-3 rounded-lg transition-colors">
+                                <i class="fa-solid fa-folder-plus w-6"></i> Buat Ujian Baru
+                            </a>
+                            <a href="#" onclick="switchAdminTab('tab-monitoring')" id="nav-tab-monitoring" class="admin-nav-item text-gray-300 hover:bg-gray-800 hover:text-white flex items-center px-4 py-3 rounded-lg transition-colors">
+                                <i class="fa-solid fa-desktop w-6"></i> Live Monitor
+                            </a>
+                            <!-- Tab Baru untuk Database dan Pengaturan -->
+                            <a href="#" onclick="switchAdminTab('tab-settings')" id="nav-tab-settings" class="admin-nav-item text-gray-300 hover:bg-gray-800 hover:text-white flex items-center px-4 py-3 rounded-lg transition-colors mt-6 border-t border-gray-700 pt-6">
+                                <i class="fa-solid fa-server w-6 text-blue-400"></i> Database & Sistem
+                            </a>
+                        </nav>
+                    </div>
+                    <!-- Logout button di bawah sidebar -->
+                    <div class="p-4 bg-gray-900 border-t border-gray-800">
+                        <button onclick="logoutAdmin()" class="w-full flex items-center justify-center px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-gray-800 rounded-lg transition-colors">
+                            <i class="fa-solid fa-arrow-right-from-bracket mr-2"></i> Keluar / Logout
+                        </button>
+                    </div>
+                </aside>
+
+                <!-- Admin Main Content -->
+                <div class="flex-1 overflow-y-auto p-4 md:p-8 w-full">
+                    
+                    <div class="flex justify-between items-end mb-8">
+                        <div>
+                            <h1 class="text-3xl font-bold text-gray-900">Control Panel</h1>
+                            <p class="text-sm font-medium mt-1 flex items-center">
+                                Status Server: 
+                                <span id="server-status-indicator" class="ml-2 px-2 py-0.5 rounded text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200">
+                                    <i class="fa-solid fa-hard-drive mr-1"></i> Local Storage (Offline)
+                                </span>
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-500" id="current-date">Senin, 1 Juni 2026</p>
+                            <p class="text-2xl font-bold text-primary-600 font-mono" id="current-time">14:52:24</p>
+                        </div>
+                    </div>
+
+                    <!-- TAB 1: OVERVIEW -->
+                    <div id="tab-overview" class="admin-tab-content block">
+                        <!-- Stat Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Ujian Aktif</p>
+                                        <h3 class="text-3xl font-bold text-gray-900 mt-1" id="stat-active-exams">0</h3>
+                                    </div>
+                                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-xl">
+                                        <i class="fa-solid fa-file-signature"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- ... Card lain sama ... -->
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Pelanggaran</p>
+                                        <h3 class="text-3xl font-bold text-red-600 mt-1" id="stat-violations">0</h3>
+                                    </div>
+                                    <div class="w-12 h-12 bg-red-50 text-red-600 rounded-lg flex items-center justify-center text-xl">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Database Ujian Table -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                <h3 class="font-bold text-gray-800 text-lg">Daftar Sesi Ujian</h3>
+                                <button onclick="switchAdminTab('tab-create')" class="text-sm bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded transition-colors shadow-sm">
+                                    <i class="fa-solid fa-plus mr-1"></i> Buat Baru
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-white border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wider">
+                                            <th class="px-6 py-4 font-medium">Mata Pelajaran</th>
+                                            <th class="px-6 py-4 font-medium">Token</th>
+                                            <th class="px-6 py-4 font-medium">Durasi</th>
+                                            <th class="px-6 py-4 font-medium">Keamanan</th>
+                                            <th class="px-6 py-4 font-medium text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="exam-list-body" class="text-sm text-gray-700">
+                                        <!-- Rendered via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: CREATE EXAM -->
+                    <div id="tab-create" class="admin-tab-content hidden max-w-4xl mx-auto">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="bg-primary-50 px-6 py-4 border-b border-primary-100">
+                                <h3 class="font-bold text-primary-900 text-lg flex items-center">
+                                    <i class="fa-brands fa-wpforms mr-2 text-primary-600"></i> Integrasi Form Ujian Baru
+                                </h3>
+                            </div>
+                            
+                            <form id="create-exam-form" onsubmit="handleCreateExam(event)" class="p-6 md:p-8 space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-1">Judul / Mata Pelajaran</label>
+                                        <input type="text" id="create-title" required class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-primary-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-1">Token Akses</label>
+                                        <div class="flex">
+                                            <input type="text" id="create-token" required class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-l-lg font-mono uppercase font-bold text-primary-700">
+                                            <button type="button" onclick="generateRandomToken()" class="bg-gray-200 hover:bg-gray-300 px-4 rounded-r-lg border border-gray-300"><i class="fa-solid fa-arrows-rotate"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Link Google Form (URL Lengkap)</label>
+                                    <input type="url" id="create-url" required class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-sm" placeholder="https://docs.google.com/forms/d/e/...">
+                                </div>
+                                <div class="w-1/2">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Durasi (Menit)</label>
+                                    <input type="number" id="create-duration" required min="5" value="90" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+                                </div>
+                                <div class="mt-4 space-y-3">
+                                    <label class="flex items-center"><input type="checkbox" id="sec-lockdown" checked class="w-5 h-5 text-primary-600 rounded mr-3"><span class="text-sm font-medium">Aktifkan Anti-Cheating (Kunci Tab)</span></label>
+                                    <label class="flex items-center"><input type="checkbox" id="sec-webcam" checked class="w-5 h-5 text-primary-600 rounded mr-3"><span class="text-sm font-medium">Aktifkan Kamera Pengawas (Proctoring)</span></label>
+                                </div>
+                                <div class="pt-6 border-t border-gray-200 flex justify-end">
+                                    <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center">
+                                        <i class="fa-solid fa-save mr-2"></i> Simpan Ujian
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: LIVE MONITORING (Simulasi) -->
+                    <div id="tab-monitoring" class="admin-tab-content hidden">
+                        <div class="bg-gray-900 rounded-xl shadow-lg border border-gray-800 text-white">
+                            <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center bg-black/30">
+                                <h3 class="font-bold text-white flex items-center"><i class="fa-solid fa-satellite-dish mr-2 text-green-400"></i> Pantauan Live</h3>
+                            </div>
+                            <div class="p-6">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="bg-gray-800 text-xs text-gray-400 uppercase">
+                                        <tr><th class="px-4 py-3">Nama / NISN</th><th class="px-4 py-3">Status Kamera</th><th class="px-4 py-3">Peringatan Kecurangan</th></tr>
+                                    </thead>
+                                    <tbody id="monitoring-list-body" class="divide-y divide-gray-700 font-medium">
+                                        <!-- Data via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: DATABASE & SYSTEM SETTINGS -->
+                    <div id="tab-settings" class="admin-tab-content hidden max-w-5xl mx-auto space-y-6">
+                        
+                        <!-- 1. Ubah Password -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <h3 class="font-bold text-gray-900 text-lg mb-4 flex items-center"><i class="fa-solid fa-key text-gray-400 mr-2"></i> Ubah Password Admin</h3>
+                            <form onsubmit="handlePasswordChange(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Password Saat Ini</label>
+                                    <input type="password" id="old-pass" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Password Baru</label>
+                                    <input type="password" id="new-pass" required minlength="4" class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <button type="submit" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-2 px-4 rounded transition-colors">Perbarui Password</button>
+                                </div>
+                            </form>
+                            <div id="pwd-msg" class="hidden mt-3 text-sm font-medium"></div>
+                        </div>
+
+                        <!-- 2. Integrasi Google Sheets -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="bg-green-50 px-6 py-4 border-b border-green-100 flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-green-900 text-lg flex items-center"><i class="fa-solid fa-file-excel text-green-600 mr-2"></i> Integrasi Google Sheets (Database)</h3>
+                                    <p class="text-xs text-green-700 mt-1">Gunakan Google Sheets sebagai server pusat untuk menyimpan semua data ujian secara permanen.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="p-6">
+                                <div class="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded text-sm text-blue-800">
+                                    <p class="font-bold mb-2">Cara Menghubungkan:</p>
+                                    <ol class="list-decimal pl-5 space-y-1">
+                                        <li>Buka <a href="https://sheets.google.com" target="_blank" class="underline font-bold">Google Sheets baru</a> dan beri nama.</li>
+                                        <li>Klik menu <strong>Ekstensi > Apps Script</strong>.</li>
+                                        <li>Hapus kode yang ada, dan <strong>Paste Kode Script</strong> di bawah ini. Klik Save (ikon disket).</li>
+                                        <li>Klik tombol biru <strong>Terapkan (Deploy) > Deployment Baru</strong>.</li>
+                                        <li>Pilih jenis <strong>Aplikasi Web (Web App)</strong>. Akses: pilih <strong>Siapa Saja (Anyone)</strong>.</li>
+                                        <li>Copy URL Web App yang dihasilkan, lalu Paste ke kolom di bawah.</li>
+                                    </ol>
+                                </div>
+
+                                <div class="mb-6">
+                                    <label class="block text-sm font-bold text-gray-700 mb-2 flex justify-between">
+                                        Kode Script (Google Apps Script)
+                                        <button onclick="copyScriptCode()" class="text-xs text-primary-600 hover:text-primary-800"><i class="fa-regular fa-copy mr-1"></i>Copy Kode</button>
+                                    </label>
+                                    <pre id="gas-code-snippet" class="text-xs">
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  
+  // Setup header jika kosong
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Tanggal Buat", "ID Ujian", "Mata Pelajaran", "Token", "Link Form", "Durasi (Menit)", "Kunci Browser", "Kamera"]);
+    sheet.getRange("A1:H1").setFontWeight("bold").setBackground("#dbeafe");
+  }
+
+  try {
+    var data = JSON.parse(e.postData.contents);
+    if(data.action === "simpanUjian") {
+      var d = data.payload;
+      sheet.appendRow([new Date(), d.id, d.title, d.token, d.url, d.durationMinutes, d.security.lockdown, d.security.webcam]);
+      return ContentService.createTextOutput(JSON.stringify({"status": "success", "message": "Data saved"}))
+                           .setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch(error) {
+    return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": error.toString()}))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+                                </div>
+
+                                <form onsubmit="handleSaveGasUrl(event)" class="bg-gray-50 p-4 border border-gray-200 rounded-lg">
+                                    <label class="block text-sm font-bold text-gray-800 mb-2">URL Web App (Google Apps Script Endpoint)</label>
+                                    <div class="flex flex-col sm:flex-row gap-3">
+                                        <input type="url" id="input-gas-url" placeholder="https://script.google.com/macros/s/AKfycb.../exec" class="flex-grow px-4 py-2 border border-gray-300 rounded focus:ring-green-500 focus:border-green-500 text-sm">
+                                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded transition-colors whitespace-nowrap shadow-sm"><i class="fa-solid fa-link mr-2"></i> Hubungkan Server</button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-2">Jika dikosongkan, aplikasi akan menggunakan Local Storage browser (Offline Mode).</p>
+                                </form>
+
+                            </div>
+                        </div>
+
+                    </div> <!-- End Tab Settings -->
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Peringatan Pelanggaran Overlay -->
+    <div id="violation-overlay">
+        <div class="bg-white text-gray-900 p-8 rounded-2xl max-w-md w-full shadow-2xl mx-4">
+            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+                <i class="fa-solid fa-triangle-exclamation text-3xl text-red-600"></i>
+            </div>
+            <h3 class="text-2xl font-black text-center mb-2">PELANGGARAN TERDETEKSI!</h3>
+            <p class="text-gray-600 text-center mb-6" id="violation-message">Anda keluar dari halaman ujian. Aktivitas dicatat.</p>
+            <button onclick="resumeExam()" class="w-full bg-red-600 px-4 py-3 text-white font-medium rounded-lg hover:bg-red-700">Lanjutkan Ujian</button>
+        </div>
+    </div>
+
+    <!-- Modal Custom Pesan -->
+    <div id="custom-alert" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center" id="custom-alert-box">
+            <div id="alert-icon" class="mx-auto w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-4 bg-blue-100 text-blue-600"><i class="fa-solid fa-circle-info"></i></div>
+            <h3 id="alert-title" class="text-xl font-bold mb-2">Pesan</h3>
+            <p id="alert-msg" class="text-gray-600 text-sm mb-6"></p>
+            <div class="flex justify-center gap-3" id="alert-buttons">
+                <button onclick="closeCustomAlert()" class="bg-primary-600 text-white py-2 px-6 rounded-lg w-full">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. STATE & DATABASE MANAGER ---
+        let currentActiveExam = null;
+        let currentUser = null;
+        let violationCount = 0;
+        let isExamRunning = false;
+        let timerInterval = null;
+        let timeRemaining = 0;
+        let mediaStream = null;
+
+        // Init Data dari LocalStorage
+        let examDatabase = JSON.parse(localStorage.getItem('eduCore_exams')) || [];
+        let gasUrl = localStorage.getItem('eduCore_gasUrl') || '';
+        let adminCreds = JSON.parse(localStorage.getItem('eduCore_adminCreds')) || { user: 'admin', pass: 'admin' };
+        
+        // --- AWAL APLIKASI ---
+        window.onload = function() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Render jika ada data
+            if(examDatabase.length > 0) renderAdminExamList();
+            
+            // Update UI Status DB
+            updateDbStatusUI();
+            
+            // Populasikan input URL GAS jika ada
+            document.getElementById('input-gas-url').value = gasUrl;
+        };
+
+        // --- SISTEM PENYIMPANAN (LOCAL & GOOGLE SHEETS) ---
+        function saveExamsToStorage() {
+            // Selalu simpan ke local storage agar UI cepat
+            localStorage.setItem('eduCore_exams', JSON.stringify(examDatabase));
+            renderAdminExamList();
+            
+            // Jika terhubung ke Google Sheets, kirim payload di background
+            if(gasUrl !== '') {
+                // Ambil data terbaru yg baru saja ditambah (index 0)
+                const latestData = examDatabase[0];
+                const payload = { action: "simpanUjian", payload: latestData };
+                
+                // Gunakan mode no-cors karena GAS default policy, 
+                // atau cukup lakukan POST fire-and-forget.
+                fetch(gasUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Menggunakan text/plain untuk bypass preflight CORS GAS
+                    body: JSON.stringify(payload)
+                }).then(response => {
+                    console.log("Terkirim ke Google Sheets");
+                }).catch(err => {
+                    console.error("Gagal sinkron ke GSheets", err);
+                });
+            }
+        }
+
+        // --- AUTHENTICATION ADMIN ---
+        function requireAdminAuth() {
+            // Cek session (sessionStorage)
+            if(sessionStorage.getItem('eduCore_adminLoggedIn') === 'true') {
+                switchView('admin-dashboard');
+            } else {
+                switchView('admin-login');
+            }
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('admin-username').value;
+            const p = document.getElementById('admin-password').value;
+            const errDiv = document.getElementById('admin-login-error');
+
+            if(u === adminCreds.user && p === adminCreds.pass) {
+                sessionStorage.setItem('eduCore_adminLoggedIn', 'true');
+                errDiv.classList.add('hidden');
+                document.getElementById('admin-login-form').reset();
+                switchView('admin-dashboard');
+                renderAdminExamList();
+            } else {
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        function logoutAdmin() {
+            sessionStorage.removeItem('eduCore_adminLoggedIn');
+            switchView('student-login');
+        }
+
+        function handlePasswordChange(e) {
+            e.preventDefault();
+            const oldP = document.getElementById('old-pass').value;
+            const newP = document.getElementById('new-pass').value;
+            const msgEl = document.getElementById('pwd-msg');
+
+            msgEl.classList.remove('hidden', 'text-green-600', 'text-red-600');
+
+            if(oldP !== adminCreds.pass) {
+                msgEl.innerText = "Password lama salah!";
+                msgEl.classList.add('text-red-600');
+            } else {
+                adminCreds.pass = newP;
+                localStorage.setItem('eduCore_adminCreds', JSON.stringify(adminCreds));
+                msgEl.innerText = "Password berhasil diubah!";
+                msgEl.classList.add('text-green-600');
+                e.target.reset();
+                
+                setTimeout(()=> msgEl.classList.add('hidden'), 3000);
+            }
+        }
+
+        // --- SISTEM PENGATURAN DATABASE ---
+        function handleSaveGasUrl(e) {
+            e.preventDefault();
+            const url = document.getElementById('input-gas-url').value.trim();
+            gasUrl = url;
+            localStorage.setItem('eduCore_gasUrl', gasUrl);
+            updateDbStatusUI();
+            
+            if(url === '') {
+                showMsgBox("Mode Offline", "Aplikasi kini berjalan menggunakan penyimpanan lokal browser.", "info");
+            } else {
+                showMsgBox("Server Terhubung", "Aplikasi akan otomatis menyinkronkan data ujian baru ke Google Sheets Anda.", "success");
+            }
+        }
+
+        function updateDbStatusUI() {
+            const indicator = document.getElementById('server-status-indicator');
+            if(gasUrl === '') {
+                indicator.className = "ml-2 px-2 py-0.5 rounded text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200";
+                indicator.innerHTML = '<i class="fa-solid fa-hard-drive mr-1"></i> Local Storage';
+            } else {
+                indicator.className = "ml-2 px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700 border border-green-200";
+                indicator.innerHTML = '<i class="fa-solid fa-cloud mr-1"></i> Google Sheets API';
+            }
+        }
+
+        function copyScriptCode() {
+            const code = document.getElementById('gas-code-snippet').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                showMsgBox("Tersalin", "Kode script berhasil disalin. Silakan Paste di editor Google Apps Script Anda.", "success");
+            });
+        }
+
+
+        // --- MANAJEMEN UJIAN (ADMIN) ---
+        function generateRandomToken() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let t = '';
+            for (let i = 0; i < 6; i++) t += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('create-token').value = t;
+        }
+
+        function handleCreateExam(e) {
+            e.preventDefault();
+            const title = document.getElementById('create-title').value;
+            const token = document.getElementById('create-token').value.toUpperCase();
+            const url = document.getElementById('create-url').value;
+            const duration = document.getElementById('create-duration').value;
+            const lockdown = document.getElementById('sec-lockdown').checked;
+            const webcam = document.getElementById('sec-webcam').checked;
+
+            const newExam = {
+                id: 'EXM-' + Date.now(),
+                title: title,
+                token: token,
+                url: url,
+                durationMinutes: parseInt(duration),
+                security: { lockdown, webcam },
+                status: 'active'
+            };
+
+            examDatabase.unshift(newExam); // Masukkan ke array lokal
+            saveExamsToStorage(); // Simpan & Push ke GSheet
+            
+            document.getElementById('create-exam-form').reset();
+            generateRandomToken();
+            
+            showMsgBox("Berhasil", `Ujian dibuat dengan Token: ${token}`, "success", () => switchAdminTab('tab-overview'));
+        }
+
+        function deleteExam(id) {
+            showMsgBox("Hapus Ujian?", "Yakin ingin menghapus sesi ini? Ini tidak menghapus data di Google Sheets.", "warning", () => {
+                examDatabase = examDatabase.filter(ex => ex.id !== id);
+                saveExamsToStorage();
+            });
+        }
+
+        function renderAdminExamList() {
+            const tbody = document.getElementById('exam-list-body');
+            tbody.innerHTML = '';
+            document.getElementById('stat-active-exams').innerText = examDatabase.length;
+
+            examDatabase.forEach(exam => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-gray-100 hover:bg-gray-50";
+                
+                let secIcons = '';
+                if(exam.security.lockdown) secIcons += '<i class="fa-solid fa-lock text-purple-600 mr-2" title="Lockdown"></i>';
+                if(exam.security.webcam) secIcons += '<i class="fa-solid fa-camera text-blue-600" title="Kamera"></i>';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-semibold">${exam.title}</td>
+                    <td class="px-6 py-4 font-mono font-bold text-primary-600">${exam.token}</td>
+                    <td class="px-6 py-4">${exam.durationMinutes} Menit</td>
+                    <td class="px-6 py-4">${secIcons || '-'}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="deleteExam('${exam.id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- LOGIKA FRONTEND SISWA (UJIAN) ---
+        function handleStudentLogin(e) {
+            e.preventDefault();
+            const name = document.getElementById('student-name').value;
+            const nisn = document.getElementById('student-nisn').value;
+            const token = document.getElementById('exam-token').value.toUpperCase();
+            const errDiv = document.getElementById('student-login-error');
+
+            const examData = examDatabase.find(ex => ex.token === token && ex.status === 'active');
+
+            if(examData) {
+                errDiv.classList.add('hidden');
+                currentUser = { name, nisn };
+                currentActiveExam = examData;
+                violationCount = 0;
+                
+                document.getElementById('active-exam-title').innerText = examData.title;
+                document.getElementById('active-student-name').innerText = name;
+                document.getElementById('active-student-nisn').innerText = nisn;
+                
+                let finalUrl = examData.url;
+                if(finalUrl.includes('viewform') && !finalUrl.includes('embedded=true')) {
+                    finalUrl += finalUrl.includes('?') ? '&embedded=true' : '?embedded=true';
+                }
+                
+                document.getElementById('form-loader').style.display = 'flex';
+                document.getElementById('google-form-iframe').src = finalUrl;
+
+                prepareExamSecurity(examData);
+            } else {
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        function prepareExamSecurity(examData) {
+            if(examData.security.lockdown && document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(e => console.log(e));
+            }
+
+            const camContainer = document.getElementById('webcam-container');
+            if(examData.security.webcam && navigator.mediaDevices) {
+                camContainer.style.display = 'block';
+                navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                    mediaStream = stream;
+                    document.getElementById('webcam-feed').srcObject = stream;
+                    startExamProcess(examData);
+                }).catch(() => {
+                    showMsgBox("Kamera Diperlukan", "Mohon izinkan akses kamera untuk melanjutkan.", "warning");
+                    startExamProcess(examData); // Start anyway for demo
+                });
+            } else {
+                camContainer.style.display = 'none';
+                startExamProcess(examData);
+            }
+        }
+
+        function startExamProcess(examData) {
+            isExamRunning = true;
+            switchView('active-exam-room');
+            
+            timeRemaining = examData.durationMinutes * 60;
+            updateTimerDisplay();
+            
+            if(timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+                if(timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    showMsgBox("Waktu Habis", "Sesi ditutup otomatis.", "warning", () => endExamProcess(false));
+                }
+            }, 1000);
+
+            if(examData.security.lockdown) {
+                window.addEventListener('blur', triggerViolation);
+                document.addEventListener('visibilitychange', () => { if(document.hidden) triggerViolation(); });
+            }
+        }
+
+        function updateTimerDisplay() {
+            const tEl = document.getElementById('timer-display');
+            const h = Math.floor(timeRemaining / 3600), m = Math.floor((timeRemaining % 3600) / 60), s = timeRemaining % 60;
+            tEl.innerText = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            if(timeRemaining < 300) document.getElementById('exam-timer').classList.add('timer-warning');
+        }
+
+        function triggerViolation() {
+            if(!isExamRunning) return;
+            violationCount++;
+            const overlay = document.getElementById('violation-overlay');
+            overlay.style.display = 'flex';
+            
+            // Simulasikan tambah angka pelanggaran di dashboard
+            let currentV = parseInt(document.getElementById('stat-violations').innerText);
+            document.getElementById('stat-violations').innerText = currentV + 1;
+
+            if(violationCount >= 3) {
+                document.getElementById('violation-message').innerText = "PELANGGARAN MAKSIMAL. Ujian Dihentikan.";
+                overlay.querySelector('button').innerText = "Keluar";
+                overlay.querySelector('button').onclick = () => endExamProcess(true);
+            }
+        }
+
+        function resumeExam() { document.getElementById('violation-overlay').style.display = 'none'; }
+
+        function finishExamPrompt() {
+            showMsgBox("Selesai?", "Pastikan Anda sudah klik Kirim di Form. Yakin selesai?", "info", () => endExamProcess(false));
+        }
+
+        function endExamProcess(forced = false) {
+            isExamRunning = false;
+            clearInterval(timerInterval);
+            
+            if(mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            document.getElementById('google-form-iframe').src = "";
+            window.removeEventListener('blur', triggerViolation);
+            if(document.fullscreenElement) document.exitFullscreen().catch(e=>e);
+            
+            document.getElementById('student-login-form').reset();
+            currentUser = null;
+            currentActiveExam = null;
+            
+            if(!forced) showMsgBox("Berhasil", "Ujian Selesai. Data aman.", "success");
+            switchView('student-login');
+        }
+
+        // --- UI UTILITIES ---
+        function switchView(vid) {
+            if(isExamRunning && vid !== 'active-exam-room') return;
+            document.querySelectorAll('.view-section').forEach(el => { el.classList.remove('active'); el.classList.add('hidden'); });
+            document.getElementById(vid).classList.remove('hidden');
+            document.getElementById(vid).classList.add('active');
+            document.getElementById('main-nav').style.display = isExamRunning || vid === 'admin-login' ? 'none' : 'block';
+        }
+
+        function switchAdminTab(tid) {
+            document.querySelectorAll('.admin-tab-content').forEach(el => { el.classList.add('hidden'); el.classList.remove('block'); });
+            document.getElementById(tid).classList.remove('hidden'); document.getElementById(tid).classList.add('block');
+            document.querySelectorAll('.admin-nav-item').forEach(el => { el.classList.remove('bg-gray-800', 'text-white'); el.classList.add('text-gray-300'); });
+            document.getElementById('nav-'+tid).classList.remove('text-gray-300'); document.getElementById('nav-'+tid).classList.add('bg-gray-800', 'text-white');
+        }
+
+        function showMsgBox(title, msg, type='info', cb=null) {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            const btnCont = document.getElementById('alert-buttons');
+            btnCont.innerHTML = '';
+            
+            if(cb) {
+                btnCont.innerHTML = `<button onclick="closeCustomAlert()" class="bg-gray-200 text-gray-800 py-2 px-4 rounded w-full">Batal</button>
+                                     <button id="alert-ok-btn" class="bg-primary-600 text-white py-2 px-4 rounded w-full">Ya</button>`;
+                document.getElementById('alert-ok-btn').onclick = () => { closeCustomAlert(); cb(); };
+            } else {
+                btnCont.innerHTML = `<button onclick="closeCustomAlert()" class="bg-primary-600 text-white py-2 px-6 rounded w-full">OK</button>`;
+            }
+            
+            document.getElementById('custom-alert').classList.remove('hidden');
+        }
+        function closeCustomAlert() { document.getElementById('custom-alert').classList.add('hidden'); }
+        
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('current-date').innerText = now.toLocaleDateString('id-ID', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+            document.getElementById('current-time').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
+        }
+    </script>
+</body>
+</html>
